@@ -1,0 +1,85 @@
+# Python specific
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+*.pyd
+*.pyo
+*.pdb
+
+# Environment specific
+.env
+*.env
+venv/
+.venv/
+
+# Project specific
+data.json
+output.xlsx
+pretty_print.py
+.DS_Store
+
+# Other common files and folders
+*.log
+*.sqlite3
+*.db
+*.dat
+*.sqlite
+*.bak
+*.swp
+*~
+*.tmp
+*.temp
+*.pid
+*.seed
+*.pidfile
+*.manifest
+
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Cython debug symbols
+cython_debug/
