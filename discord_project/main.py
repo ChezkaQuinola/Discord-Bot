@@ -2,7 +2,9 @@ from typing import Final
 import os
 from dotenv import load_dotenv
 from discord import Intents, Client, Message
-from responses import get_response
+from responses import get_response, scrape_and_update_data
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 # Load token
 load_dotenv()
@@ -12,6 +14,9 @@ TOKEN: Final[str] = os.getenv('DISCORD_TOKEN')
 intents: Intents = Intents.default()
 intents.message_content = True
 client: Client = Client(intents=intents)
+
+# Scheduler setup
+scheduler = AsyncIOScheduler()
 
 # Message functionality
 async def send_message(message: Message, user_message: str) -> None:
@@ -36,6 +41,7 @@ async def shutdown():
 @client.event
 async def on_ready() -> None:
     print(f'{client.user} is now running!')
+    scheduler.start()
 
 # Handling incoming messages
 @client.event
@@ -43,17 +49,11 @@ async def on_message(message: Message) -> None:
     if message.author == client.user:
         return
 
-    username: str = str(message.author)
-    user_message: str = message.content
-    channel: str = str(message.channel)
-
-    print(f'[{channel}] {username}: "{user_message}"')
+    user_message = str(message.content)
     await send_message(message, user_message)
 
+# Schedule the scraping task every morning at 6:20 AM
+scheduler.add_job(scrape_and_update_data, CronTrigger(hour=6, minute=20))
 
-# Main entry point
-def main() -> None:
-    client.run(TOKEN)
-
-if __name__ == '__main__':
-    main()
+# Run the bot
+client.run(TOKEN)
