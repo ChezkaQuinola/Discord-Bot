@@ -1,45 +1,31 @@
-from random import choice, randint
+import html
 import requests
-from bs4 import BeautifulSoup
 import json
 from datetime import datetime
 from dateutil.parser import parse
 
-# Load the JSON data
-with open('parsing_test/data.json', 'r') as file:
+# URL to scrape
+DATA_URL = "https://sites.allegheny.edu/my/wp-json/wp/v2/posts"
+
+# Function to scrape the website and update data.json
+def scrape_and_update_data():
+    response = requests.get(DATA_URL, headers={'User-Agent': 'Mozilla/5.0'})
+    if response.status_code == 200:
+        with open('data.json', 'w') as file:
+            json.dump(response.json(), file, indent=2)
+    else:
+        print(f"Failed to fetch data. Status code: {response.status_code}")
+
+# Load the JSON data initially
+with open('data.json', 'r') as file:
     events_data = json.load(file)
 
 def get_response(user_message: str) -> str:
-    if user_message.startswith('scrape '):
-        url = user_message[7:]
-        return scrape_website(url)
-    elif user_message.startswith('event on '):
-        date_str = user_message[9:]
-        return find_event_by_date(date_str)
+    if any(keyword in user_message.lower() for keyword in ["event on", "any events on", "anything happening on", "happening on"]):
+        date_str = user_message.split("on")[-1].strip()
+        return find_events_by_date(date_str)
     else:
         return handle_user_input(user_message)
-
-def scrape_website(url: str) -> str:
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        
-        # Assuming the response is JSON with a 'rendered' key containing HTML
-        data = response.json()
-        if 'rendered' in data:
-            # Extract the rendered content
-            html_content = data['rendered']
-            # Remove the rendered key from the JSON data
-            del data['rendered']
-            # Return the cleaned text
-            return html_content
-        else:
-            return 'No rendered content found in the response.'
-    except requests.exceptions.RequestException as e:
-        return f'An error occurred: {e}'
-    except json.JSONDecodeError:
-        return 'Failed to decode JSON from the response.'
-
 
 def handle_user_input(user_input: str) -> str:
     lowered: str = user_input.lower()
@@ -61,16 +47,44 @@ def handle_user_input(user_input: str) -> str:
             "Do you mind rephrasing that?"
         ])
 
-def find_event_by_date(date_str: str) -> str:
+def find_events_by_date(date_str: str) -> str:
     try:
         # Normalize the user's date input to a consistent format
         query_date = parse(date_str).replace(year=datetime.now().year)
+        events_found = []
+
         for event in events_data:
-            event_date = datetime.fromisoformat(event['date'])
-            if event_date.month == query_date.month and event_date.day == query_date.day:
-                title = event.get('title', 'No title found')
-                excerpt = event.get('excerpt', 'No excerpt found')
-                return f"Title: {title}\nExcerpt: {excerpt}"
-        return "No events found for that date."
+            title = html.unescape(event['title']['rendered'])
+            excerpt = html.unescape(event['excerpt']['rendered'])
+            
+            event_dates = extract_dates_from_text(title + " " + excerpt)
+            
+            if any(query_date.date() in date_range for date_range in event_dates):
+                events_found.append(f"Title: {title}\nExcerpt: {excerpt}")
+
+        if events_found:
+            return "\n\n".join(events_found)
+        else:
+            return "No events found for that date."
     except ValueError as e:
         return f"Invalid date format. Please use 'Month day', 'MM/DD', or 'dayth of Month' format."
+
+def extract_dates_from_text(text: str):
+    """
+    Extracts dates from the given text. This function handles different date formats and ranges.
+    Returns a list of date ranges (as sets of dates).
+    """
+    date_ranges = []
+    for word in text.split():
+        try:
+            if '-' in word:
+                start_date_str, end_date_str = word.split('-')
+                start_date = parse(start_date_str).replace(year=datetime.now().year).date()
+                end_date = parse(end_date_str).replace(year=datetime.now().year).date()
+                date_ranges.append(set([start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]))
+            else:
+                date = parse(word).replace(year=datetime.now().year).date()
+                date_ranges.append(set([date]))
+        except ValueError:
+            continue
+    return date_ranges
