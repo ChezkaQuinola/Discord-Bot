@@ -5,6 +5,10 @@ from discord import Intents, Client, Message
 from responses import get_response, scrape_and_update_data
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Load token
 load_dotenv()
@@ -21,17 +25,21 @@ scheduler = AsyncIOScheduler()
 # Message functionality
 async def send_message(message: Message, user_message: str) -> None:
     if not user_message:
-        print('(Message was empty because intents were not enabled)')
+        logging.info('(Message was empty because intents were not enabled)')
         return
 
-    if is_private := user_message[0] == '?':
+    is_private = user_message[0] == '?'
+    if is_private:
         user_message = user_message[1:]
 
     try:
         response: str = get_response(user_message)
-        await message.author.send(response) if is_private else await message.channel.send(response)
+        if is_private:
+            await message.author.send(response)
+        else:
+            await message.channel.send(response)
     except Exception as e:
-        print(e)
+        logging.error(e)
 
 # Secure shutdown command
 async def shutdown():
@@ -40,7 +48,7 @@ async def shutdown():
 # Startup
 @client.event
 async def on_ready() -> None:
-    print(f'{client.user} is now running!')
+    logging.info(f'{client.user} is now running!')
     scheduler.start()
 
 # Handling incoming messages
@@ -56,4 +64,7 @@ async def on_message(message: Message) -> None:
 scheduler.add_job(scrape_and_update_data, CronTrigger(hour=6, minute=20))
 
 # Run the bot
-client.run(TOKEN)
+try:
+    client.run(TOKEN)
+except Exception as e:
+    logging.error(f"Error running bot: {e}")
