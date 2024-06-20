@@ -1,50 +1,50 @@
 import html
-import schedule
-import time
+import asyncio
+import requests
 import json
-import re
 import aiohttp
+import re
+from random import choice, randint
 from datetime import datetime, timedelta
 from dateutil.parser import parse
 from bs4 import BeautifulSoup
-from random import choice, randint
-
 
 # URL to scrape
 DATA_URL = "https://sites.allegheny.edu/my/wp-json/wp/v2/posts"
 
-# Async function to scrape the website and update data.json
+# Function to scrape the website and update data.json
 async def scrape_and_update_data():
-    async with aiohttp.ClientSession() as session:
-        async with session.get(DATA_URL, headers={'User-Agent': 'Mozilla/5.0'}) as response:
-            if response.status == 200:
-                posts = await response.json()
-                events_data = []
+    response = requests.get(DATA_URL, headers={'User-Agent': 'Mozilla/5.0'})
+    if response.status_code == 200:
+        posts = response.json()
+        events_data = []
 
-                for post in posts:
-                    title = html.unescape(post['title']['rendered'])
+        for post in posts:
+            title = html.unescape(post['title']['rendered'])
+            guid = post['guid']['rendered']
+            
+            # Extract the excerpt from the 'content' field in the JSON data
+            soup = BeautifulSoup(post['content']['rendered'], 'html.parser')
+            excerpt = soup.get_text()
+            excerpt = html.unescape(excerpt)
 
-                    # Extract the excerpt from the 'entry' class in the HTML content
-                    soup = BeautifulSoup(post['content']['rendered'], 'html.parser')
-                    excerpt = soup.get_text() if soup else 'No excerpt found'
-                    excerpt = html.unescape(excerpt)
+            events_data.append({
+                'title': title,
+                'excerpt': excerpt,
+                'guid': guid
+            })
 
-                    events_data.append({
-                        'title': title,
-                        'excerpt': excerpt
-                    })
-
-                with open('data.json', 'w') as file:
-                    json.dump(events_data, file, indent=2)
-            else:
-                print(f"Failed to fetch data. Status code: {response.status}")
+        with open('parsing_test/data.json', 'w') as file:
+            json.dump(events_data, file, indent=2)
+    else:
+        print(f"Failed to fetch data. Status code: {response.status_code}")
 
 # Load the JSON data initially
 with open('parsing_test/data.json', 'r') as file:
     events_data = json.load(file)
 
 def get_response(user_message: str) -> str:
-    if any(keyword in user_message.lower() for keyword in ["event on", "any events on", "anything happening on", "happening on"]):
+    if any(keyword in user_message.lower() for keyword in ["event on", "any events on", "anything happening on", "happening on", "events on"]):
         date_str = user_message.split("on")[-1].strip()
         return find_events_by_date(date_str)
     elif "any events today" in user_message.lower():
@@ -63,14 +63,14 @@ def handle_user_input(user_input: str) -> str:
     elif 'how are you' in lowered:
         return "Good, thanks!"
     elif 'bye' in lowered:
-        return "See you later!"
+        return "See you later! 😊"
     elif 'roll dice' in lowered:
-        return f"You rolled: {randint(1, 6)}"
+        return f"You rolled: {randint(1, 6)} 🎲"
     else:
         return choice([
-            "I do not understand...",
-            "What are you talking about?",
-            "Do you mind rephrasing that?"
+            "I do not understand... 🤔",
+            "What are you talking about? 😕",
+            "Do you mind rephrasing that? 🧐"
         ])
 
 def find_events_by_date(date_str: str) -> str:
@@ -82,14 +82,22 @@ def find_events_by_date(date_str: str) -> str:
         for event in events_data:
             title = event['title']
             excerpt = event['excerpt']
+            guid = event['guid']
             
             event_dates = extract_dates_from_text(title + " " + excerpt)
             
             if any(query_date.date() in date_range for date_range in event_dates):
-                events_found.append(f"Title: {title}\nExcerpt: {excerpt}")
+                # Split the excerpt into paragraphs
+                paragraphs = excerpt.split("\n")
+                first_paragraph = paragraphs[0]
+
+                formatted_excerpt = f"{first_paragraph}\n\n🔎 For more information, click [here]({guid})"
+                events_found.append(f"{first_paragraph}\n\n🔎 For more information, click [here]({guid})")
+
+                events_found.append(f"🗓️ {title}\n📝 {formatted_excerpt}")
+
 
         if events_found:
-            # Join the events with a line separator
             return "\n\n---\n\n".join(events_found)
         else:
             return "No events found for that date."
