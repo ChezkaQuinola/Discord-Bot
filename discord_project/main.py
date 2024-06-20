@@ -6,6 +6,7 @@ from responses import get_response, scrape_and_update_data
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import logging
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +50,11 @@ async def shutdown():
 @client.event
 async def on_ready() -> None:
     logging.info(f'{client.user} is now running!')
+    # Schedule the scraping task every morning at 6:20 AM
+    scheduler.add_job(scrape_and_update_data, CronTrigger(hour=6, minute=20))
     scheduler.start()
+    # Update data.json on startup
+    await scrape_and_update_data()
 
 # Handling incoming messages
 @client.event
@@ -59,9 +64,6 @@ async def on_message(message: Message) -> None:
 
     user_message = str(message.content)
     await send_message(message, user_message)
-
-# Schedule the scraping task every morning at 6:20 AM
-scheduler.add_job(scrape_and_update_data, CronTrigger(hour=6, minute=20))
 
 # Run the bot
 try:
