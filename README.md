@@ -32,7 +32,7 @@ This Discord bot retrieves and displays information about events from a specifie
 
 4. **Run the Bot:**
    ```
-   python main.py
+   python discord_project/main.py
    ```
 
 5. **Interact with the Bot:**
